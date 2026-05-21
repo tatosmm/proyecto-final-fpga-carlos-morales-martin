@@ -1,0 +1,127 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: 
+-- 
+-- Create Date: 28.11.2025 11:56:03
+-- Design Name: 
+-- Module Name: signal_analizer - Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+--use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx leaf cells in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity signal_analizer is
+    Port ( -- ENTRADAS
+           clk_200  : in STD_LOGIC;
+           rst      : in STD_LOGIC;
+           DRDY     : in STD_LOGIC;
+           Data_bin : in STD_LOGIC_VECTOR(11 downto 0);
+           
+           -- SALIDAS
+           T     : out STD_LOGIC_VECTOR (31 downto 0);
+           sum_acum    : out STD_LOGIC_VECTOR (31 downto 0);
+           --V_med : out STD_LOGIC_VECTOR (11 downto 0);
+           max_found : out STD_LOGIC);
+end signal_analizer;
+
+architecture Behavioral of signal_analizer is
+
+component Data_counter is
+    Port ( -- ENTRADAS
+           DRDY    : in STD_LOGIC;
+           clk     : in STD_LOGIC;
+           rst_cnt : in STD_LOGIC;
+           
+           -- SALIDAS
+           cnt     : out STD_LOGIC_VECTOR (31 downto 0));
+end component Data_counter;
+
+component Max_finder is
+    Port ( -- ENTRADAS
+           Data_bin : in STD_LOGIC_VECTOR (11 downto 0);
+           DRDY     : in STD_LOGIC;
+           clk      : in STD_LOGIC;
+           cnt      : in STD_LOGIC_VECTOR (31 downto 0);
+           
+           -- SALIDAS
+           max_found : out STD_LOGIC);
+end component Max_finder;
+
+component Calc_param is
+    Port ( -- ENTRADAS
+           Data_bin  : in STD_LOGIC_VECTOR (11 downto 0);
+           max_found : in STD_LOGIC;
+           clk       : in STD_LOGIC;
+           DRDY      : in STD_LOGIC;
+           cnt       : in STD_LOGIC_VECTOR (31 downto 0);
+           
+           -- SALIDAS
+           T        : out STD_LOGIC_VECTOR (31 downto 0);
+           sum_acum : out STD_LOGIC_VECTOR (31 downto 0));
+end component Calc_param;
+
+component Prescaler is
+    generic ( N_BITS  : integer;
+              VAL_DIV : integer );
+             
+       Port ( rst     : in STD_LOGIC;
+              clk_in  : in STD_LOGIC; -- reloj de entrada
+              clk_out : out STD_LOGIC); -- reloj escalado
+end component Prescaler;
+
+    signal conect_max_found, clk_100 : STD_LOGIC;
+    signal conect_cnt : STD_LOGIC_VECTOR (31 downto 0);
+    
+begin
+    conta_Data: Data_counter
+        port map ( DRDY => DRDY,  
+                   clk => clk_100,               
+                   rst_cnt  => conect_max_found,                  
+                   cnt  => conect_cnt);                           
+                                    
+    max_F: Max_finder 
+        port map ( Data_bin  => Data_bin,          
+                   DRDY      => DRDY,              
+                   clk       => clk_100,
+                   cnt       => conect_cnt,          
+                   max_found => conect_max_found);                        
+                                                                                  
+    vmed_frec: Calc_param 
+        port map ( Data_bin  => Data_bin,
+                   clk => clk_100,                                 
+                   max_found => conect_max_found,                    
+                   DRDY  => DRDY,                                    
+                   cnt   => conect_cnt,                              
+                   T     => T,                                       
+                   sum_acum => sum_acum);      
+                                                        
+    PSC_100MHz: Prescaler                                               
+        generic map ( N_BITS  => 2,                                              
+                      VAL_DIV => 2) -- (200 MHz)/2 = 100 MHz       
+           port map ( rst => rst,                                           
+                      clk_in => clk_200,                                   
+                      clk_out => clk_100);
+                      
+    max_found <= conect_max_found;                                                                                                     
+end Behavioral; 
