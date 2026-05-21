@@ -1,0 +1,52 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity Calc_param is
+    Port ( -- ENTRADAS
+           Data_bin  : in STD_LOGIC_VECTOR (11 downto 0);
+           max_found : in STD_LOGIC;
+           clk       : in STD_LOGIC;
+           DRDY      : in STD_LOGIC;
+           cnt       : in STD_LOGIC_VECTOR (31 downto 0);
+           
+           -- SALIDAS
+           T         : out STD_LOGIC_VECTOR (31 downto 0);
+           sum_acum  : out STD_LOGIC_VECTOR (31 downto 0));
+end Calc_param;
+
+architecture Behavioral of Calc_param is
+
+  signal sum      : unsigned (31 downto 0) := (others => '0');
+  signal u16_Data : unsigned (11 downto 0) := (others => '0');
+  
+  -- Señales para detección de flancos
+  signal drdy_d      : std_logic := '0';
+  signal max_found_d : std_logic := '0';
+
+begin
+    process(clk)
+    begin
+        if rising_edge(clk) then
+            -- Registro de estados anteriores
+            drdy_d      <= DRDY;
+            max_found_d <= max_found;
+
+            -- 1. SUMA ACUMULADA (Solo en el flanco de subida de DRDY)
+            -- Esto garantiza que cada muestra del ADC se suma exactamente UNA vez.
+            if DRDY = '1' and drdy_d = '0' then
+                sum <= sum + unsigned(Data_bin); 
+            end if;
+
+            -- 2. CAPTURA Y RESET (Solo en el flanco de subida de max_found)
+            -- Cuando el detector de picos encuentra el máximo, guardamos resultados y limpiamos.
+            if max_found = '1' and max_found_d = '0' then
+                sum_acum <= STD_LOGIC_VECTOR(sum);
+                T        <= cnt; -- 'cnt' ya viene filtrado por flancos del módulo anterior
+                
+                sum <= (others => '0'); -- Resetea la suma para el nuevo periodo
+            end if;
+        end if;
+    end process;
+    
+end Behavioral;
