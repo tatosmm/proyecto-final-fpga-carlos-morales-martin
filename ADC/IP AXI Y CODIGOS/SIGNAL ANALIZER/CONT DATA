@@ -1,0 +1,41 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity Data_counter is
+    Port ( -- ENTRADAS
+           DRDY    : in STD_LOGIC;
+           clk     : in STD_LOGIC; 
+           rst_cnt : in STD_LOGIC; -- reset síncrono
+           
+           -- SALIDAS
+           cnt     : out STD_LOGIC_VECTOR (31 downto 0));
+end Data_counter;
+
+architecture Behavioral of Data_counter is
+
+    signal cuenta_actual : unsigned (31 downto 0) := (others => '0');
+    -- Señal para detectar el flanco de subida
+    signal drdy_d : std_logic := '0'; 
+
+begin
+
+counter: process (clk)
+begin
+    if rising_edge (clk) then
+        -- Registro el estado anterior de DRDY en cada ciclo de reloj
+        drdy_d <= DRDY;
+
+        if rst_cnt = '1' then 
+             cuenta_actual <= (others => '0');
+        -- Condición de FLANCO DE SUBIDA: 
+        -- DRDY es '1' ahora, pero era '0' en el ciclo de reloj anterior
+        elsif (DRDY = '1' and drdy_d = '0') then
+            cuenta_actual <= cuenta_actual + 1;  
+        end if;
+    end if;
+end process;
+    
+    cnt <= std_logic_vector(cuenta_actual);
+
+end Behavioral;
