@@ -1,0 +1,79 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity Max_finder is
+    Port ( -- ENTRADAS
+           Data_bin : in STD_LOGIC_VECTOR (11 downto 0);
+           DRDY     : in STD_LOGIC;
+           clk      : in STD_LOGIC;
+           cnt      : in STD_LOGIC_VECTOR (31 downto 0);
+           
+           -- SALIDAS
+           max_found : out STD_LOGIC);
+end Max_finder;
+
+architecture Behavioral of Max_finder is
+    
+    signal Data_max_ABS : unsigned (11 downto 0) := (others => '0');
+    signal cnt_max : unsigned (31 downto 0) := (others => '0');
+    signal cond_max : STD_LOGIC := '0';
+    signal condicion_d : std_logic := '0';
+    signal err : unsigned(11 downto 0) := (others => '0');
+    
+    -- SEÑAL CRÍTICA: Para detectar cuando DRDY acaba de subir
+    signal drdy_d : std_logic := '0';
+
+    constant tol : unsigned(11 downto 0) := to_unsigned(10, 12); 
+    constant cnt_min : unsigned(31 downto 0) := to_unsigned(1000, 32); 
+    constant time_max : unsigned(31 downto 0) := to_unsigned(10, 32);
+
+begin
+
+    MAX: process(clk)
+    begin
+        if rising_edge(clk) then
+            drdy_d <= DRDY; -- valor anterior de DRDY
+
+            if DRDY = '1' and drdy_d = '0' then -- rising_edge(DRDY)          
+                if unsigned(Data_bin) > Data_max_ABS then                        
+                    Data_max_ABS <= unsigned(Data_bin); 
+                end if;                                     
+                
+                if unsigned(Data_bin) > Data_max_ABS then -- valor absoluto del error
+                    err <= unsigned(Data_bin) - Data_max_ABS;
+                else
+                    err <= Data_max_ABS - unsigned(Data_bin);
+                end if;
+                
+                if err < tol then -- número de muestras en el máximo
+                    cnt_max <= cnt_max + 1;
+                else
+                    cnt_max <= (others => '0');
+                end if;
+                                     
+                -- CONDICIONES DE MÁXIMO                   
+                if (err < tol) and (unsigned(cnt) > cnt_min) then 
+                    cond_max <= '1';            
+                else 
+                    cond_max <= '0'; 
+                end if;
+            end if;
+        end if;
+    end process;
+    
+    -- Genera un pulso de max_found durante un solo ciclo de reloj
+    one_pulse: process(clk)
+    begin
+        if rising_edge(clk) then
+            condicion_d <= cond_max; 
+            
+            if (cond_max = '1' and condicion_d = '0') then
+                max_found <= '1'; 
+            else
+                max_found <= '0';
+            end if;
+        end if;
+    end process; 
+
+end Behavioral;
